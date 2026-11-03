@@ -1,0 +1,31 @@
+# 数据与实验结果
+/datasets/
+/runs/
+/logs/
+/.cache/
+
+# 模型和导出文件
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# 压缩包和论文
+*.zip
+*.tar
+*.tar.gz
+*.pdf
+
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 本机绝对路径配置
+/configs/VisDrone-local.yaml
+/configs/VisDrone-autodl.yaml
+
+# 暂时不上传的其他源码副本
+/ultralytics-leyolo/
+/Torch-Pruning/
+/third_party/ultralytics-b5/
