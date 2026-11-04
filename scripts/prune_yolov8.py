@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Structurally prune YOLOv8 with Random, L1, or LAMP importance.
 
-All methods use the same Torch-Pruning DepGraph backend, protected Detect
-outputs, global ranking, channel rounding and target MAC speed-up. Only the
-importance estimator changes, which makes their results directly comparable.
+All methods use the same Torch-Pruning DepGraph backend, protected Detect head,
+global ranking, channel rounding and target MAC speed-up. Only the importance
+estimator changes, which makes their results directly comparable.
 """
 
 import argparse
@@ -217,6 +217,7 @@ def main():
         "steps_used": len(history),
         "round_to": args.round_to,
         "max_pruning_ratio": args.max_pruning_ratio,
+        "detect_protection": "whole_head_as_pruning_root",
         "baseline_macs": int(baseline_macs),
         "baseline_params": int(baseline_params),
         "pruned_macs": final["macs"],

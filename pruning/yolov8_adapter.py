@@ -12,7 +12,7 @@ from typing import Iterable, List
 import torch
 import torch.nn as nn
 
-from ultralytics.nn.modules import Bottleneck, C2f, Conv, DFL, Detect
+from ultralytics.nn.modules import Bottleneck, C2f, Conv, Detect
 
 
 class PrunableC2f(nn.Module):
@@ -95,22 +95,18 @@ def convert_c2f_to_prunable(module: nn.Module) -> int:
 
 
 def fixed_output_layers(model: nn.Module) -> List[nn.Module]:
-    """Return Detect layers whose output channel counts are part of YOLO's format."""
+    """Return the complete Detect head for exclusion as a pruning root.
+
+    Torch-Pruning expands an ignored module to all of its submodules.  Passing
+    the complete head therefore follows its official YOLOv8 example: DepGraph
+    may still adapt a head layer's input channels when an upstream feature map
+    is pruned, but no Detect convolution is independently selected as a root
+    pruning group.
+    """
     head = model.model[-1]
     if not isinstance(head, Detect):
         raise TypeError(f"Expected a Detect head, found {type(head).__name__}")
-
-    ignored: List[nn.Module] = []
-    for branches in (head.cv2, head.cv3):
-        for branch in branches:
-            convolutions = [layer for layer in branch.modules() if isinstance(layer, nn.Conv2d)]
-            if not convolutions:
-                raise RuntimeError("A Detect branch contains no output convolution")
-            ignored.append(convolutions[-1])
-    for layer in head.modules():
-        if isinstance(layer, DFL):
-            ignored.append(layer.conv)
-    return ignored
+    return [head]
 
 
 def flatten_tensors(value) -> Iterable[torch.Tensor]:
