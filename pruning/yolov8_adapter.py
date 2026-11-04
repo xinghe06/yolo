@@ -138,3 +138,22 @@ def output_max_abs_diff(before, after) -> float:
         differences.append((left.float() - right.float()).abs().max().item())
     return max(differences, default=0.0)
 
+
+def forward_raw_detect(model: nn.Module, inputs: torch.Tensor):
+    """Run an eval model while asking only Detect to return undecoded tensors.
+
+    Comparing decoded boxes is unnecessarily sensitive to harmless CUDA
+    round-off: DFL and stride scaling amplify tiny feature-map differences.
+    Setting the head's flag directly keeps all child BatchNorm modules in eval
+    mode while selecting Detect's raw-output branch.
+    """
+    head = model.model[-1]
+    if not isinstance(head, Detect):
+        raise TypeError(f"Expected a Detect head, found {type(head).__name__}")
+    previous = head.training
+    head.training = True
+    try:
+        with torch.no_grad():
+            return model(inputs)
+    finally:
+        head.training = previous
