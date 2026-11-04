@@ -125,19 +125,28 @@ def main():
         parameter.requires_grad_(True)
 
     example = torch.randn(1, 3, args.trace_imgsz, args.trace_imgsz, device=device)
-    # Compare raw Detect feature maps. Decoded coordinates amplify harmless
-    # CUDA convolution round-off and can falsely fail an otherwise equivalent
-    # C2f conversion.
-    before_conversion = forward_raw_detect(deepcopy(model), example)
-    converted = convert_c2f_to_prunable(model)
-    after_conversion = forward_raw_detect(model, example)
+
+    # Verify the weight transfer on CPU FP32. CuDNN may choose different
+    # algorithms (and TF32 accumulation paths) for one wide convolution and
+    # two half-width convolutions, producing milliscale differences even when
+    # their weights are exactly equivalent. CPU verification isolates the
+    # structural conversion from that device-specific numerical noise.
+    check_model = deepcopy(model).float().cpu().eval()
+    check_example = example.detach().float().cpu()
+    before_conversion = forward_raw_detect(check_model, check_example)
+    check_converted = convert_c2f_to_prunable(check_model)
+    after_conversion = forward_raw_detect(check_model, check_example)
     conversion_diff = output_max_abs_diff(before_conversion, after_conversion)
-    del before_conversion, after_conversion
+    del check_model, check_example, before_conversion, after_conversion
     if conversion_diff > args.equivalence_tolerance:
         raise RuntimeError(
             f"C2f conversion changed model output by {conversion_diff:.6g}; "
             f"tolerance is {args.equivalence_tolerance:.6g}"
         )
+
+    converted = convert_c2f_to_prunable(model)
+    if converted != check_converted:
+        raise RuntimeError(f"C2f conversion count changed between check and target: {check_converted} -> {converted}")
 
     protected = fixed_output_layers(model)
     baseline_macs, baseline_params = tp.utils.count_ops_and_params(model, example)
